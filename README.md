@@ -38,7 +38,7 @@ git submodule update --init        # fetches the Waveshare SDK into e-Paper/
 ## 2. Python dependencies
 
 ```bash
-pip install OpenAI Pillow requests
+pip install -r requirements.txt
 ```
 
 The driver also needs `RPi.GPIO` and `spidev` (preinstalled on Raspberry Pi OS,
