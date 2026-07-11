@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+.idea/
+generated_image.png
+.env
