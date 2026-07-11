@@ -15,10 +15,7 @@ image onto a **Waveshare 4.2" e-Paper display** (400×300).
 
 ```
 tb3au.py            # main script: joke + AI image -> e-paper
-peppe8o-paper.py    # hardware/drawing demo (not used in production)
-testing.py          # dev helper: generate an image for a quote
-text.py             # word-wrap helper
-epd4in2_V2.py       # local copy of the 4.2" driver (reference)
+peppe8o-paper.py    # hardware/drawing demo (not used in production; 2.13" panel)
 e-Paper/            # Waveshare SDK  -> GIT SUBMODULE (see below)
 .env                # local secrets  -> gitignored, NOT committed
 ```
