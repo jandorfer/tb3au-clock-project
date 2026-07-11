@@ -116,5 +116,5 @@ except IOError as e:
 
 except KeyboardInterrupt:
     print("ctrl + c:")
-    epd2in13_V2.epdconfig.module_exit()
-    exit()
+    epd4in2_V2.epdconfig.module_exit()
+    sys.exit()
