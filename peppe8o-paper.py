@@ -22,11 +22,15 @@
 # Date: May 21th, 2023
 # Version: 1.0
 # Blog: peppe8o.com
+#
+# NOTE: third-party demo (peppe8o.com) for a 2.13" e-Paper panel. It is NOT
+# used in production on the 4.2" display and is kept here for reference only.
 
 import sys, os, time, traceback
 
-picdir = "G:/dev/tb3au_clock_project/e-Paper/RaspberryPi_JetsonNano/python/pic"
-libdir = "G:/dev/tb3au_clock_project/e-Paper/RaspberryPi_JetsonNano/python/lib" # Set according to your git download
+_BASE = os.path.dirname(os.path.abspath(__file__))
+picdir = os.path.join(_BASE, "e-Paper", "RaspberryPi_JetsonNano", "python", "pic")
+libdir = os.path.join(_BASE, "e-Paper", "RaspberryPi_JetsonNano", "python", "lib")  # SDK is a git submodule
 if os.path.exists(libdir): sys.path.append(libdir)
 sys.path.append(os.path.join(os.path.dirname(__file__), "e-Paper/RaspberryPi_JetsonNano/python/lib"))
 
