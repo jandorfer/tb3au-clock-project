@@ -3,15 +3,20 @@
 # This file is TRACKED in the repo so the dashboard action is reproducible.
 # It is NOT used by the Pi -- it lives in your Home Assistant config.
 #
-# Setup:
-#   1. Copy this file into your HA config dir (e.g. /config/homeassistant/tb3au_clock.yaml).
-#   2. In configuration.yaml add:
-#        homeassistant:
-#          packages:
-#            tb3au_clock: !include homeassistant/tb3au_clock.yaml
-#   3. Restart Home Assistant.
-#   4. Add the script below to a dashboard as a Button or Tile card. Tapping it
-#      opens a dialog to type the message, then publishes it to the clock.
+# Two ways to use it:
+#   EASIEST - copy just the `set_clock_message:` block (the part *under*
+#            `script:`, not the `script:` line) into your existing `scripts.yaml`.
+#            Your configuration.yaml already does `script: !include scripts.yaml`,
+#            so nothing else changes. No `homeassistant:` block, no include path.
+#   PACKAGE - copy this whole file to /config/homeassistant/tb3au_clock.yaml and
+#            add to configuration.yaml:
+#              homeassistant:
+#                packages:
+#                  tb3au_clock: !include homeassistant/tb3au_clock.yaml
+#            (this merges with a top-level `script: !include scripts.yaml`).
+#
+# Then restart/reload HA and add the `Set clock message` script to a dashboard
+# as a Button/Tile card. Tapping it prompts for the text and publishes it.
 #
 # Requires the MQTT integration and the clock daemon (which auto-discovers the
 # device via ha_discovery.py). See README.md.
