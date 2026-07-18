@@ -41,6 +41,13 @@ white = 1
 
 IMG_PATH = os.path.join(_BASE, "generated_image.png")
 
+# Display orientation correction (degrees). The panel's native buffer is
+# landscape (400x300). If the panel is physically mounted rotated from that,
+# set this to 0/90/180/270 to compensate. The user's panel is mounted 180
+# degrees from native, so every render is flipped before being sent to the
+# driver.
+DISPLAY_ROTATION = 180
+
 # Module-level display state (mirrors the original globals so render helpers
 # and show_error() can share the active canvas).
 epd = None
@@ -73,6 +80,15 @@ def init_display():
     return epd, font15
 
 
+def display_image(epd, img=None):
+    """Send the canvas to the panel, applying the mount-orientation rotation."""
+    if img is None:
+        img = image
+    if DISPLAY_ROTATION:
+        img = img.rotate(DISPLAY_ROTATION)
+    epd.display(epd.getbuffer(img))
+
+
 def clear_display(epd):
     global image, draw
     epd.Clear()
@@ -81,7 +97,7 @@ def clear_display(epd):
     # every render 90 degrees.
     image = Image.new("1", (epd.width, epd.height), 255)
     draw = ImageDraw.Draw(image)
-    epd.display(epd.getbuffer(image))
+    display_image(epd)
 
 
 def get_quote():
@@ -149,7 +165,7 @@ def show_error(epd, message):
         for line in lines[:15]:
             draw.text((5, offset), line, font=font15, fill=black)
             offset += 18
-        epd.display(epd.getbuffer(image))
+        display_image(epd)
         epd.sleep()
     except Exception:  # nosec B110 - best-effort; never crash the error display
         pass
@@ -194,7 +210,7 @@ def render_joke():
         for line in lines:
             draw.text((5, offset), line, font=font15, fill=black)
             offset = offset + 18
-        epd.display(epd.getbuffer(image))
+        display_image(epd)
         return quote
     except Exception as e:
         print("Joke render failed:", e)
@@ -213,7 +229,7 @@ def render_text(text, layout=None):
         for line in lines:
             draw.text((5, offset), line, font=font15, fill=black)
             offset = offset + 18
-        epd.display(epd.getbuffer(image))
+        display_image(epd)
         return True
     except Exception as e:
         print("Text render failed:", e)
@@ -232,7 +248,7 @@ def render_image(data, image_type="base64", layout=None):
         x = (image.width - img.width) // 2
         y = (image.height - img.height) // 2
         image.paste(img, (x, y))
-        epd.display(epd.getbuffer(image))
+        display_image(epd)
         return True
     except Exception as e:
         print("Image render failed:", e)
@@ -256,7 +272,7 @@ def render_both(text, data, image_type="base64", layout=None):
         for line in lines:
             draw.text((5, offset), line, font=font15, fill=black)
             offset = offset + 18
-        epd.display(epd.getbuffer(image))
+        display_image(epd)
         return True
     except Exception as e:
         print("Both render failed:", e)
