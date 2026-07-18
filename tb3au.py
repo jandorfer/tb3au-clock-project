@@ -86,7 +86,7 @@ def get_quote():
     if not api_key:
         raise RuntimeError("Missing API_NINJAS_KEY (set it in .env)")
     api_url = "https://api.api-ninjas.com/v1/jokes"
-    response = requests.get(api_url, headers={"X-Api-Key": api_key})
+    response = requests.get(api_url, headers={"X-Api-Key": api_key}, timeout=15)
     response.raise_for_status()
     data = json.loads(response.text)
     return data[0]["joke"]
@@ -147,7 +147,7 @@ def show_error(epd, message):
             offset += 18
         epd.display(epd.getbuffer(image))
         epd.sleep()
-    except Exception:
+    except Exception:  # nosec B110 - best-effort; never crash the error display
         pass
 
 

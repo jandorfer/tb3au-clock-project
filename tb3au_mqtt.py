@@ -127,7 +127,7 @@ def main():
             try:
                 client.publish(TOPIC_STATUS, "offline", qos=1, retain=True)
                 client.disconnect()
-            except Exception:
+            except Exception:  # nosec B110 - ensure we still exit on Ctrl-C
                 pass
             sys.exit(0)
         except Exception as e:
