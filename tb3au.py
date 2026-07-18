@@ -411,13 +411,6 @@ def _render_markdown(text, markdown, image):
 
 def clear_display(epd):
     global image, draw
-    # Wake/re-init the panel. Each render puts it into deep sleep
-    # (epd.sleep -> module_exit tears down SPI/GPIO), so a later render must
-    # re-init before Clear/display can reach the hardware -- otherwise only the
-    # first render after a daemon start appears on screen. The cron entry point
-    # dodges this (fresh process per run); the long-running MQTT daemon needs
-    # the re-init on every render.
-    epd.init()
     epd.Clear()
     # Build the buffer in the panel's native landscape size (400x300). Creating
     # it as (height, width) made the driver transpose the buffer, which rotated
@@ -483,6 +476,21 @@ def break_string_into_array(string, max_length):
     return result
 
 
+# When True the panel is kept awake between renders. Used by the long-running
+# MQTT daemon, which renders on demand: sleeping between renders calls
+# module_exit() (closes file descriptors and breaks the MQTT socket -> "Bad file
+# descriptor" -> reconnect loop), and on this driver a re-init after deep sleep
+# does not reliably recover the display, so only the first render after a
+# restart would ever appear. Keeping it awake avoids both problems.
+_KEEP_AWAKE = False
+
+
+def _sleep_panel(epd):
+    """Sleep the panel unless the caller asked to keep it awake."""
+    if not _KEEP_AWAKE:
+        epd.sleep()
+
+
 def show_error(epd, message):
     """Render an error message on the panel instead of leaving it blank."""
     try:
@@ -493,7 +501,7 @@ def show_error(epd, message):
             draw.text((5, offset), line, font=font15, fill=black)
             offset += 18
         display_image(epd)
-        epd.sleep()
+        _sleep_panel(epd)
     except Exception:  # nosec B110 - best-effort; never crash the error display
         pass
 
@@ -544,7 +552,7 @@ def render_joke():
         show_error(epd, "Update failed: " + str(e))
         return False
     finally:
-        epd.sleep()
+        _sleep_panel(epd)
 
 
 def render_text(text, layout=None, markdown=False):
@@ -559,7 +567,7 @@ def render_text(text, layout=None, markdown=False):
         show_error(epd, "Render failed: " + str(e))
         return False
     finally:
-        epd.sleep()
+        _sleep_panel(epd)
 
 
 def render_image(data, image_type="base64", layout=None):
@@ -578,7 +586,7 @@ def render_image(data, image_type="base64", layout=None):
         show_error(epd, "Image failed: " + str(e))
         return False
     finally:
-        epd.sleep()
+        _sleep_panel(epd)
 
 
 def render_both(text, data, image_type="base64", layout=None):
@@ -602,7 +610,7 @@ def render_both(text, data, image_type="base64", layout=None):
         show_error(epd, "Render failed: " + str(e))
         return False
     finally:
-        epd.sleep()
+        _sleep_panel(epd)
 
 
 def render_clear():
@@ -614,7 +622,7 @@ def render_clear():
         print("Clear failed:", e)
         return False
     finally:
-        epd.sleep()
+        _sleep_panel(epd)
 
 
 def main():

@@ -14,6 +14,7 @@ import time
 
 import paho.mqtt.client as mqtt
 
+import tb3au  # needed to toggle tb3au._KEEP_AWAKE for daemon mode
 from ha_discovery import publish_discovery
 from tb3au import (
     render_both,
@@ -121,6 +122,10 @@ def on_message(client, userdata, msg):
 
 
 def main():
+    # Keep the panel awake between renders: this is a long-running daemon that
+    # renders on demand, and sleeping between renders breaks the MQTT socket
+    # (module_exit closes our file descriptors). tb3au decides whether to sleep.
+    tb3au._KEEP_AWAKE = True
     client = mqtt.Client(
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
         client_id=CLIENT_ID,
