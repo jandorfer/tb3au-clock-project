@@ -82,18 +82,25 @@ relative to the script, so it works from any directory / user.
 
 ## 5. Automatic daily refresh (cron)
 
-`tb3au.sh` runs the display once; schedule it and an auto-pull:
+`tb3au.sh` runs the display once; an auto-update hook pulls code + SDK and
+applies changes:
 
 ```cron
 # Refresh the display every day at midnight
 0 0 * * * /home/jason/epaper/tb3au.sh
 
-# Auto-update code + SDK from GitHub every 15 minutes
-*/15 * * * * cd /home/jason/epaper && git pull --ff-only origin main && git submodule update --init >> /home/jason/epaper/git_pull.log 2>&1
+# Auto-update from GitHub every 15 minutes (code + SDK + deps + daemon)
+*/15 * * * * /home/jason/epaper/deploy/auto_update.sh >> /home/jason/epaper/git_pull.log 2>&1
 ```
 
+`deploy/auto_update.sh` runs `git pull --ff-only`, updates the SDK submodule,
+and — **only when something that affects the running service changed** —
+reinstalls Python dependencies (`requirements.txt`), reinstalls the systemd
+unit, and restarts `tb3au-mqtt.service`. So a dependency version bump is applied
+automatically; the daily joke cron keeps running independently.
+
 Edit with `crontab -e`. After a `git push` from your dev machine, the Pi picks
-up both code changes and any SDK update within 15 minutes.
+up code, SDK, and dependency changes within 15 minutes.
 
 ## 6. Push content from Home Assistant (MQTT)
 

@@ -23,7 +23,13 @@ It performs, idempotently:
 2. `python3 -m pip install -r requirements.txt`
 3. installs + enables the `tb3au-mqtt.service` systemd unit
 4. makes `tb3au.sh` executable
-5. installs the two cron jobs (daily joke at midnight + 15-min auto-pull)
+5. installs the two cron jobs (daily joke at midnight + 15-min auto-update
+   via `deploy/auto_update.sh`)
+
+The installed 15-minute cron runs `deploy/auto_update.sh`, which also
+auto-installs Python dependency changes (`requirements.txt`) and restarts the
+daemon when code / unit / SDK change — so a dependency version bump needs no
+manual step.
 
 ## Then configure secrets
 Create `.env` from the template and fill it in (see README §3):

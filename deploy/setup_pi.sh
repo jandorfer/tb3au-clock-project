@@ -27,18 +27,18 @@ sudo systemctl enable --now tb3au-mqtt.service
 echo "==> Making tb3au.sh executable"
 chmod +x tb3au.sh
 
-# Install the cron jobs idempotently (guarded by a marker comment).
-CRON_MARKER="# tb3au clock"
-if ! crontab -l 2>/dev/null | grep -qF "$CRON_MARKER"; then
-  ( crontab -l 2>/dev/null
-    echo "$CRON_MARKER"
-    echo "0 0 * * * $REPO_ROOT/tb3au.sh"
-    echo "*/15 * * * * cd $REPO_ROOT && /usr/bin/git pull --ff-only origin main && /usr/bin/git submodule update --init >> $REPO_ROOT/git_pull.log 2>&1"
-  ) | crontab -
-  echo "    cron jobs installed"
-else
-  echo "    cron jobs already present; skipping"
-fi
+echo "==> Installing cron jobs"
+# Strip any prior tb3au entries (daily + auto-update) so we never duplicate,
+# then install the canonical pair idempotently.
+CURRENT_CRON="$(crontab -l 2>/dev/null || true)"
+NEW_CRON="$(printf '%s\n' "$CURRENT_CRON" | grep -vE 'tb3au\.sh|git pull --ff-only origin main|deploy/auto_update\.sh' || true)"
+{
+  printf '%s\n' "$NEW_CRON"
+  echo "# tb3au clock"
+  echo "0 0 * * * $REPO_ROOT/tb3au.sh"
+  echo "*/15 * * * * $REPO_ROOT/deploy/auto_update.sh >> $REPO_ROOT/git_pull.log 2>&1"
+} | crontab -
+echo "    cron jobs installed/updated"
 
 echo
 echo "==> DONE. Next steps:"
