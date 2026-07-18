@@ -21,6 +21,7 @@ from tb3au import (
     render_joke,
     render_text,
 )
+from ha_discovery import publish_discovery
 
 TOPIC_SET = os.environ.get("TB3AU_TOPIC_SET", "tb3au/display/set")
 TOPIC_STATE = os.environ.get("TB3AU_TOPIC_STATE", "tb3au/display/state")
@@ -36,8 +37,11 @@ CLIENT_ID = os.environ.get("MQTT_CLIENT_ID", "tb3au-epd")
 def on_connect(client, userdata, flags, reason_code, properties):
     print("Connected to MQTT broker (rc=%s); subscribing to %s" % (reason_code, TOPIC_SET))
     client.subscribe(TOPIC_SET, qos=1)
+    client.subscribe("homeassistant/status", qos=1)
     # Announce availability (retained).
     client.publish(TOPIC_STATUS, "online", qos=1, retain=True)
+    # Advertise the Home Assistant device via MQTT discovery (retained).
+    publish_discovery(client)
 
 
 def on_disconnect(client, userdata, flags, reason_code, properties):
@@ -88,6 +92,14 @@ def handle_payload(payload):
 
 
 def on_message(client, userdata, msg):
+    # Re-advertise the HA device when Home Assistant (re)starts.
+    if msg.topic == "homeassistant/status":
+        try:
+            if msg.payload.decode("utf-8", "replace").strip().lower() == "online":
+                publish_discovery(client)
+        except Exception:  # nosec B110 - best-effort re-advertise
+            pass
+        return
     result = handle_payload(msg.payload)
     state = {"ts": int(time.time())}
     if result is None:

@@ -160,7 +160,29 @@ def tb3au_show_image(path):
                             "image_type": "base64"}))
 ```
 
-### Represent the panel as a device in HA
+### The panel appears as a Home Assistant device automatically
+
+`tb3au_mqtt.py` publishes **MQTT discovery** messages on connect (built in
+`ha_discovery.py`), so Home Assistant creates a device called **“E-ink Clock”**
+with these entities — no manual YAML required:
+
+| Entity | Type | What it does |
+|---|---|---|
+| Connection | `binary_sensor` | online/offline from `tb3au/status` |
+| Last Shown | `sensor` | last rendered text (from `tb3au/display/state`) |
+| Display Message | `text` | type a message → rendered on the panel |
+| Show Joke | `button` | re-runs the daily joke |
+| Clear Screen | `button` | blanks the panel |
+
+The device is re-advertised whenever Home Assistant announces itself online, so
+it survives HA restarts. Discovery uses the default `homeassistant/` prefix.
+
+<details>
+<summary>Prefer manual YAML instead of discovery?</summary>
+
+If you disable MQTT discovery, add this to `configuration.yaml` (or a package).
+**Remove it if you already rely on the automatic discovery above**, to avoid
+duplicate entities.
 
 ```yaml
 mqtt:
@@ -176,6 +198,7 @@ mqtt:
       payload_off: "offline"
       device_class: connectivity
 ```
+</details>
 
 See `MQTT_DESIGN.md` for the full schema.
 
