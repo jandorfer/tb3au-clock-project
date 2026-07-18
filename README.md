@@ -237,6 +237,26 @@ Then hooks run on every commit, and the **`lint` job** in
 PR/push (alongside the `test` job). Dev dependencies live in
 `requirements-dev.txt`. See `MQTT_DESIGN.md` for the full design.
 
+## 9. Connecting to & provisioning the Pi
+
+The display code, the systemd unit, the daily cron launcher (`tb3au.sh`, now
+**tracked in this repo**), and a bootstrap script (`deploy/setup_pi.sh`) are all
+committed, so a fresh Pi can be stood up from this repo alone.
+
+- **SSH access** to this specific Pi (host, user, key) is in `PI_ACCESS.md`
+  (gitignored — local only, so it never leaves your machine).
+- **Full provisioning walkthrough** (clone → bootstrap → secrets → MQTT →
+  caveats, including the force-push resync) is in `PI_SETUP.md`.
+
+One-command bootstrap on the Pi (after cloning with the submodule):
+
+```bash
+deploy/setup_pi.sh        # submodule init, pip install, install+enable the
+                        # systemd unit, install the cron jobs
+cp .env.example .env    # then fill in OPENAI_API_KEY / API_NINJAS_KEY / MQTT_*
+sudo systemctl restart tb3au-mqtt.service
+```
+
 ## Notes
 
 - The SDK submodule is pinned to a known-good commit. To update it to the

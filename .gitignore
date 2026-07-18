@@ -11,3 +11,7 @@ tests/output/
 
 .coverage
 .pytest_cache/
+
+# Local-only Pi access notes (host / SSH key) — intentionally NOT committed
+PI_ACCESS.md
+pi_access.md
