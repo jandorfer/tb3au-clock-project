@@ -237,6 +237,20 @@ The **Show Joke** (`button.tb3au_epd_joke`) and **Clear Screen**
 add them to the dashboard as Button/Tile cards; no extra config needed. Tapping
 **Show Joke** renders a fresh joke on the panel.
 
+**Troubleshooting — nothing appears on the panel:** the daemon only acts
+on messages it actually receives on `tb3au/display/set`. If tapping the script
+does nothing, it is almost always an HA-side issue, not the clock:
+
+- Add the script as a **Button card** (entity `script.set_clock_message`). Tapping
+  it opens a dialog to type the message. A Tile / "toggle" card may run the script
+  *without* prompting, and HA then refuses to run it (required field missing) — so
+  nothing is published.
+- After editing `scripts.yaml`, reload scripts (Developer Tools → YAML → Reload
+  scripts) or restart HA.
+- Quick check: run `script.set_clock_message` from **Developer Tools → Actions**
+  with a `text` value. If the panel updates, the script is fine and only the card
+  needs fixing.
+
 Use a script rather than a raw Lovelace button `tap_action` → `mqtt.publish`
 with a template payload — that path does **not** render the template
 (HA core issue #137260). The file also shows how to add one-tap preset buttons.
