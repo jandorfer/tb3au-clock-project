@@ -94,20 +94,50 @@ def display_image(epd, img=None):
 # Markdown + auto-fit text rendering
 # ---------------------------------------------------------------------------
 
-# Face 0 = WenQuanYi Micro Hei (regular, scalable); face 1 = the Mono variant
-# (used for `code`). The TTC ships no bold/italic face, so bold is faux (the
-# glyph is overdrawn a few pixels) and italic renders as regular.
+# Bundled TrueType family (Liberation Sans/Mono, SIL-licensed) in ./fonts so
+# we control typography and get REAL bold/italic. Text is rendered to a
+# grayscale canvas with these fonts (anti-aliased) and thresholded to the 1-bit
+# panel, replacing the old ImageDraw.text + faux-bold path.
+_FONT_DIR = os.path.join(_BASE, "fonts")
+REGULAR_TTF = os.path.join(_FONT_DIR, "LiberationSans-Regular.ttf")
+BOLD_TTF = os.path.join(_FONT_DIR, "LiberationSans-Bold.ttf")
+ITALIC_TTF = os.path.join(_FONT_DIR, "LiberationSans-Italic.ttf")
+BOLDITALIC_TTF = os.path.join(_FONT_DIR, "LiberationSans-BoldItalic.ttf")
+MONO_TTF = os.path.join(_FONT_DIR, "LiberationMono-Regular.ttf")
+
+# Largest auto-fit base size. Keeps short text readable instead of ballooning
+# to fill the whole 400x300 panel.
+MAX_BASE = 40
+
 _FONT_CACHE = {}
 
 
-def _font(size, mono=False):
-    key = (int(size), bool(mono))
+def _load_font(path, size):
+    key = (path, int(size))
     if key not in _FONT_CACHE:
-        idx = 1 if mono else 0
-        _FONT_CACHE[key] = ImageFont.truetype(
-            os.path.join(picdir, "Font.ttc"), int(size), index=idx
-        )
+        _FONT_CACHE[key] = ImageFont.truetype(path, int(size))
     return _FONT_CACHE[key]
+
+
+def _ttf_path(style):
+    if "code" in style:
+        return MONO_TTF
+    if "bold" in style and "italic" in style:
+        return BOLDITALIC_TTF
+    if "bold" in style:
+        return BOLD_TTF
+    if "italic" in style:
+        return ITALIC_TTF
+    return REGULAR_TTF
+
+
+def _ttf(style, size):
+    return _load_font(_ttf_path(style), size)
+
+
+def _font(size, mono=False):
+    """Fallback font used only for width measurement during layout."""
+    return _load_font(MONO_TTF if mono else REGULAR_TTF, size)
 
 
 def _text_width(font, text):
@@ -314,7 +344,7 @@ def _build_layout(blocks, base, avail_w, margin):
 def _fit_base_size(blocks, W, H, margin):
     avail_w = W - 2 * margin
     avail_h = H - 2 * margin
-    lo, hi, best = 8, 120, 8
+    lo, hi, best = 8, MAX_BASE, 8
     while lo <= hi:
         mid = (lo + hi) // 2
         _, th, mw = _build_layout(blocks, mid, avail_w, margin)
@@ -326,15 +356,11 @@ def _fit_base_size(blocks, W, H, margin):
     return best
 
 
-def _draw_words(draw, x, y, words, size, mono):
+def _draw_words(draw, x, y, words, size):
     fx = x
     for w, style in words:
-        f = _font(size, "code" in style)
-        if "bold" in style:
-            for dx, dy in ((0, 0), (1, 0), (0, 1)):
-                draw.text((fx + dx, y + dy), w, font=f, fill=black)
-        else:
-            draw.text((fx, y), w, font=f, fill=black)
+        f = _ttf(style, size)
+        draw.text((fx, y), w, font=f, fill=0)
         fx += _text_width(f, w) + _text_width(f, " ")
 
 
@@ -348,12 +374,17 @@ def _render_markdown(text, markdown, image):
         blocks = [("paragraph", " ")]
     base = _fit_base_size(blocks, W, H, margin)
     ops, total_h, _ = _build_layout(blocks, base, avail_w, margin)
-    draw = ImageDraw.Draw(image)
     start_y = margin + max(0, (H - 2 * margin - total_h) // 2)
+
+    # Render text onto a grayscale canvas (anti-aliased with real TTF weights),
+    # then threshold it to a 1-bit mask and composite onto the panel buffer.
+    gray = Image.new("L", (W, H), 255)
+    gdraw = ImageDraw.Draw(gray)
+    draw = ImageDraw.Draw(image)
     for op in ops:
         if op[0] == "line":
             _, y, indent, words, size, mono = op
-            _draw_words(draw, indent, start_y + y, words, size, mono)
+            _draw_words(gdraw, indent, start_y + y, words, size)
         elif op[0] == "rule":
             _, y, h = op
             draw.line((margin, start_y + y, W - margin, start_y + y), fill=black, width=2)
@@ -367,6 +398,8 @@ def _render_markdown(text, markdown, image):
                 outline=black,
                 width=1,
             )
+    mask = gray.point(lambda p: 255 if p < 128 else 0)
+    image.paste(black, mask=mask)
     return image
 
 

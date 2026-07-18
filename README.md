@@ -132,8 +132,11 @@ renders them using the same code path as the daily joke.
   markdown`) to render the text as **markdown** — `#`/`##`/`###` headings,
   `**bold**`, `*italic*`, `` `code` ``, `- ` bullet lists, `> ` quotes, and
   `---` rules — with the font **auto-scaled to fill the panel** (short text is
-  drawn large, long text shrinks to fit). Faux-bold is used (the TTC ships no
-  bold face); italic renders as regular.
+  drawn large, long text shrinks to fit). Text is rendered with the bundled
+  Liberation Sans/Mono TrueType family (real **bold**/`*italic*`/code weights,
+  anti-aliased then thresholded to the 1-bit panel); the auto-fit base size is
+  capped (see `MAX_BASE` in `tb3au.py`) so short text stays readable rather
+  than ballooning to fill the whole panel.
 - `image` — decoded (base64) or fetched (url), fitted and centred.
 - `both` — image at the top + wrapped caption below (the joke layout).
 - `clear` — blank the screen.
