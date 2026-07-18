@@ -1,3 +1,4 @@
 openai==2.6.1
 Pillow==8.1.2
 requests==2.25.1
+paho-mqtt==2.1.0

@@ -4,3 +4,10 @@ __pycache__/
 .idea/
 generated_image.png
 .env
+tests/output/
+
+.coverage
+.pytest_cache/
+
+.coverage
+.pytest_cache/

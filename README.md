@@ -48,13 +48,25 @@ Create a file named `.env` next to `tb3au.py`:
 ```ini
 OPENAI_API_KEY=sk-svcacct-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 API_NINJAS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# MQTT push from Home Assistant (only needed for tb3au_mqtt.py)
+MQTT_BROKER=core-mosquitto
+MQTT_PORT=1883
+MQTT_USER=tb3au
+MQTT_PASSWORD=your-mqtt-password
 ```
 
 - `OPENAI_API_KEY` — an OpenAI API key (the script uses `gpt-image-1`).
 - `API_NINJAS_KEY` — from <https://api-ninjas.com/api/jokes>.
+- `MQTT_BROKER` / `MQTT_PORT` — the Mosquitto broker HA runs. On a Pi that is
+  **not** the HA host, use the HA machine's LAN IP. On HAOS the broker
+  container is reachable from another container as `core-mosquitto`.
+- `MQTT_USER` / `MQTT_PASSWORD` — a **dedicated Home Assistant user** (create
+  it under Settings → People) with Mosquitto access. Do **not** reuse the API
+  keys. See `MQTT_DESIGN.md` and section 6.
 
 `.env` is gitignored, so it is **never committed**. Keys are read at runtime
-via a small built-in loader in `tb3au.py` (no extra dependencies).
+via a small built-in loader in `tb3au.py` (no extra dependencies). A committed
+`.env.example` shows every variable.
 
 > **Security:** rotate these keys if they are ever exposed. Because `.env` is
 > gitignored the live key lives only on the device, not in git history.
@@ -82,6 +94,103 @@ relative to the script, so it works from any directory / user.
 
 Edit with `crontab -e`. After a `git push` from your dev machine, the Pi picks
 up both code changes and any SDK update within 15 minutes.
+
+## 6. Push content from Home Assistant (MQTT)
+
+You can push **text or images** from Home Assistant onto the display over
+MQTT (Mosquitto). A small daemon, `tb3au_mqtt.py`, subscribes to commands and
+renders them using the same code path as the daily joke.
+
+### Topics
+
+| Topic | Direction | Purpose |
+|---|---|---|
+| `tb3au/status` | Pi → HA | Availability (`online`/`offline`, retained + LWT) |
+| `tb3au/display/set` | HA → Pi | Render command (JSON, QoS 1, **not** retained) |
+| `tb3au/display/state` | Pi → HA | What is currently shown (echo, retained) |
+
+### Payload (`tb3au/display/set`)
+
+```json
+{
+  "mode": "text | image | both | clear | joke",
+  "text": "optional string",
+  "image": "optional base64 string OR http(s) url",
+  "image_type": "base64 | url"
+}
+```
+
+- `text` — wrapped text on the panel.
+- `image` — decoded (base64) or fetched (url), fitted and centred.
+- `both` — image at the top + wrapped caption below (the joke layout).
+- `clear` — blank the screen.
+- `joke` — re-run the daily joke render (hands control back to the cron job).
+
+### HA example (text)
+
+```yaml
+# automation / script
+- service: mqtt.publish
+  data:
+    topic: tb3au/display/set
+    qos: 1
+    payload: '{"mode":"text","text":"Front door left open!"}'
+```
+
+### HA example (image, base64)
+
+Home Assistant cannot base64-encode an image in pure YAML. Use **pyscript**,
+**AppDaemon**, or a `shell_command` that encodes the bytes and then publishes.
+Sketch (pyscript):
+
+```python
+@service
+def tb3au_show_image(path):
+    import base64, json
+    b64 = base64.b64encode(open(path, "rb").read()).decode()
+    mqtt.publish("tb3au/display/set",
+                json.dumps({"mode": "image", "image": b64,
+                            "image_type": "base64"}))
+```
+
+### Represent the panel as a device in HA
+
+```yaml
+mqtt:
+  sensor:
+    - name: "E-ink Last Shown"
+      state_topic: tb3au/display/state
+      value_template: "{{ value_json.text | default('(image)') }}"
+      json_attributes_topic: tb3au/display/state
+  binary_sensor:
+    - name: "E-ink Panel Online"
+      state_topic: tb3au/status
+      payload_on: "online"
+      payload_off: "offline"
+      device_class: connectivity
+```
+
+See `MQTT_DESIGN.md` for the full schema.
+
+## 7. Run the MQTT daemon (systemd)
+
+The daemon is a long-running service. A unit file is provided at
+`deploy/tb3au-mqtt.service` (edit the `User` / `WorkingDirectory` /
+`ExecStart` paths to match your Pi).
+
+```bash
+# Install
+cp deploy/tb3au-mqtt.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now tb3au-mqtt.service
+
+# Logs
+journalctl -u tb3au-mqtt.service -f
+```
+
+The daemon connects to `MQTT_BROKER` using the credentials in `.env`, publishes
+`tb3au/status = online`, and listens on `tb3au/display/set`. The daily cron
+job (section 5) keeps running independently.
 
 ## Notes
 

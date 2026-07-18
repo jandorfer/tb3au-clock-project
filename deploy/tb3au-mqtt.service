@@ -1,0 +1,16 @@
+[Unit]
+Description=tb3au e-ink MQTT daemon
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jason
+WorkingDirectory=/home/jason/epaper
+ExecStart=/usr/bin/python3 /home/jason/epaper/tb3au_mqtt.py
+Restart=on-failure
+RestartSec=5
+# .env is read from the working directory (see tb3au.py _load_dotenv).
+
+[Install]
+WantedBy=multi-user.target
