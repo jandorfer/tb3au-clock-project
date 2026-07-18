@@ -224,8 +224,8 @@ def run_checks(save_only=False):
     results.append(check("render_text produces an image", img is not None))
     results.append(
         check(
-            "render_text image is 300x400",
-            img is not None and img.size == (300, 400),
+            "render_text image is 400x300 (native landscape)",
+            img is not None and img.size == (400, 300),
             str(img.size) if img else "None",
         )
     )

@@ -76,7 +76,10 @@ def init_display():
 def clear_display(epd):
     global image, draw
     epd.Clear()
-    image = Image.new("1", (epd.height, epd.width), 255)
+    # Build the buffer in the panel's native landscape size (400x300). Creating
+    # it as (height, width) made the driver transpose the buffer, which rotated
+    # every render 90 degrees.
+    image = Image.new("1", (epd.width, epd.height), 255)
     draw = ImageDraw.Draw(image)
     epd.display(epd.getbuffer(image))
 
@@ -112,8 +115,9 @@ def download_image(quote):
 
 def img_convert(img_file):
     img = Image.open(img_file)
-    img = img.resize((300, 300), Image.LANCZOS)
-    img = img.rotate(90)
+    # Panel is landscape (400x300); fit the cartoon into the top band.
+    img = img.convert("RGB")
+    img.thumbnail((400, 200), Image.LANCZOS)
     img = img.convert("1")  # convert to black & white
     return img
 
@@ -182,9 +186,11 @@ def render_joke():
         download_image(quote)
         img = img_convert(IMG_PATH)
         clear_display(epd)
-        image.paste(img, (0, 100))
+        # Landscape panel: cartoon across the top, joke text underneath.
+        ix = (image.width - img.width) // 2
+        image.paste(img, (ix, 0))
         lines = break_string_into_array(quote, 44)
-        offset = 0
+        offset = img.height + 8
         for line in lines:
             draw.text((5, offset), line, font=font15, fill=black)
             offset = offset + 18
@@ -241,11 +247,12 @@ def render_both(text, data, image_type="base64", layout=None):
     try:
         clear_display(epd)
         img = _decode_image(data, image_type)
-        img = _fit_image(img, 300, 300)
-        img = img.rotate(90)
-        image.paste(img, (0, 100))
+        img = _fit_image(img, image.width, image.height)
+        # Landscape panel: image across the top, text underneath.
+        ix = (image.width - img.width) // 2
+        image.paste(img, (ix, 0))
         lines = break_string_into_array(text or "", 44)
-        offset = 0
+        offset = img.height + 8
         for line in lines:
             draw.text((5, offset), line, font=font15, fill=black)
             offset = offset + 18
