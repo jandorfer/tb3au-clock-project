@@ -232,6 +232,11 @@ Then add the `Set clock message` **script** to a dashboard as a Button/Tile card
 Tapping it opens a dialog to type the message, then publishes
 `{"mode":"text","text":"…"}` to `tb3au/display/set`.
 
+The **Show Joke** (`button.tb3au_epd_joke`) and **Clear Screen**
+(`button.tb3au_epd_clear`) buttons are created automatically by discovery — just
+add them to the dashboard as Button/Tile cards; no extra config needed. Tapping
+**Show Joke** renders a fresh joke on the panel.
+
 Use a script rather than a raw Lovelace button `tap_action` → `mqtt.publish`
 with a template payload — that path does **not** render the template
 (HA core issue #137260). The file also shows how to add one-tap preset buttons.
