@@ -73,6 +73,8 @@ def handle_payload(payload):
         ok = render_clear()
     elif mode == "joke":
         ok = render_joke()
+        if ok:
+            text = ok
     elif mode == "text":
         ok = render_text(text)
     elif mode == "image":
@@ -93,9 +95,10 @@ def handle_payload(payload):
 
 def on_message(client, userdata, msg):
     # Re-advertise the HA device when Home Assistant (re)starts.
-    if msg.topic == "homeassistant/status":
+    if getattr(msg, "topic", None) == "homeassistant/status":
         try:
-            if msg.payload.decode("utf-8", "replace").strip().lower() == "online":
+            payload = getattr(msg, "payload", b"") or b""
+            if payload.decode("utf-8", "replace").strip().lower() == "online":
                 publish_discovery(client)
         except Exception:  # nosec B110 - best-effort re-advertise
             pass

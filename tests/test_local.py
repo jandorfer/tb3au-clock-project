@@ -88,8 +88,27 @@ def test_dispatch_joke_without_key_errors():
     assert isinstance(r, dict) and "error" in r
 
 
+def test_dispatch_joke_echo_includes_quote():
+    tb = harness.tb3au
+    saved = (tb.get_quote, tb.download_image, tb.img_convert)
+    tb.get_quote = lambda: "Why did the chicken cross the road? To get to the other side!"
+    tb.download_image = lambda q: None
+    from PIL import Image as _PILImage
+
+    tb.img_convert = lambda p: _PILImage.new("1", (300, 300), 255)
+    try:
+        r = harness.tb3au_mqtt.handle_payload(b'{"mode":"joke"}')
+    finally:
+        tb.get_quote, tb.download_image, tb.img_convert = saved
+    assert r == {
+        "mode": "joke",
+        "text": "Why did the chicken cross the road? To get to the other side!",
+    }
+
+
 def test_on_message_publishes_state():
     class Msg:
+        topic = harness.tb3au_mqtt.TOPIC_SET
         payload = b'{"mode":"text","text":"via on_message"}'
 
     class Client:

@@ -189,7 +189,7 @@ def render_joke():
             draw.text((5, offset), line, font=font15, fill=black)
             offset = offset + 18
         epd.display(epd.getbuffer(image))
-        return True
+        return quote
     except Exception as e:
         print("Joke render failed:", e)
         show_error(epd, "Update failed: " + str(e))

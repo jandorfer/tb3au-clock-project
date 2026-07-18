@@ -70,7 +70,12 @@ def _configs():
             "name": "Last Shown",
             "unique_id": "tb3au_epd_last_shown",
             "state_topic": TOPIC_STATE,
-            "value_template": "{{ value_json.text if value_json.text else '(image)' }}",
+            "value_template": (
+                "{% if value_json.mode == 'joke' %}(joke) {{ value_json.text }}"
+                "{% elif value_json.mode == 'clear' %}(cleared)"
+                "{% elif value_json.text %}{{ value_json.text }}"
+                "{% else %}(image){% endif %}"
+            ),
             "json_attributes_topic": TOPIC_STATE,
             "availability": AVAILABILITY,
             "device": DEVICE,

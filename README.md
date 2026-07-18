@@ -169,7 +169,7 @@ with these entities — no manual YAML required:
 | Entity | Type | What it does |
 |---|---|---|
 | Connection | `binary_sensor` | online/offline from `tb3au/status` |
-| Last Shown | `sensor` | last rendered text (from `tb3au/display/state`) |
+| Last Shown | `sensor` | last content — `(joke) …` for jokes, the text/caption otherwise, `(image)`/`(cleared)` when blank |
 | Display Message | `text` | type a message → rendered on the panel |
 | Show Joke | `button` | re-runs the daily joke |
 | Clear Screen | `button` | blanks the panel |
