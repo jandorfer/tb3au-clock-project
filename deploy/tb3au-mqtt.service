@@ -10,6 +10,7 @@ WorkingDirectory=/home/jason/epaper
 ExecStart=/usr/bin/python3 /home/jason/epaper/tb3au_mqtt.py
 Restart=on-failure
 RestartSec=5
+Environment=PYTHONUNBUFFERED=1
 # .env is read from the working directory (see tb3au.py _load_dotenv).
 
 [Install]
