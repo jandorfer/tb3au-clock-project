@@ -411,6 +411,13 @@ def _render_markdown(text, markdown, image):
 
 def clear_display(epd):
     global image, draw
+    # Wake/re-init the panel. Each render puts it into deep sleep
+    # (epd.sleep -> module_exit tears down SPI/GPIO), so a later render must
+    # re-init before Clear/display can reach the hardware -- otherwise only the
+    # first render after a daemon start appears on screen. The cron entry point
+    # dodges this (fresh process per run); the long-running MQTT daemon needs
+    # the re-init on every render.
+    epd.init()
     epd.Clear()
     # Build the buffer in the panel's native landscape size (400x300). Creating
     # it as (height, width) made the driver transpose the buffer, which rotated

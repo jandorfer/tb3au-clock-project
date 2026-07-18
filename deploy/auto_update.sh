@@ -44,4 +44,26 @@ if [ "$RESTART" -eq 1 ]; then
   sudo systemctl restart tb3au-mqtt.service
 fi
 
+# Safety: make sure the panel isn't left showing a stale test/debug render
+# (e.g. a temporary "Hi" sent while probing). Re-assert joke mode as a RETAINED
+# message so the (re)started daemon restores the daily joke on connect, and the
+# setting also survives the next reboot. Non-fatal if the broker is unreachable.
+if [ -f tb3au_mqtt.py ]; then
+  PYTHONPATH="$REPO_ROOT" python3 - <<'PYEOF'
+import json, time, paho.mqtt.client as mqtt
+import tb3au_mqtt as t
+c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+c.username_pw_set(t.USERNAME, t.PASSWORD)
+try:
+    c.connect(t.BROKER, t.PORT, 10)
+    c.loop_start()
+    c.publish("tb3au/display/set", json.dumps({"mode": "joke"}), qos=1, retain=True)
+    time.sleep(2)
+    c.loop_stop()
+    print("[auto_update] re-asserted joke mode (clears stale test renders)")
+except Exception as e:
+    print(f"[auto_update] could not re-assert joke mode: {e}")
+PYEOF
+fi
+
 echo "[$(date -Is)] auto_update: done"
