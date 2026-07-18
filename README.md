@@ -202,6 +202,30 @@ mqtt:
 
 See `MQTT_DESIGN.md` for the full schema.
 
+### A dashboard button that sends a typed message
+
+You already get a **“Display Message” `text` entity** from discovery — add it to
+a dashboard and type+submit to push text. If you want a dedicated **button** that
+prompts for the text when tapped, use the tracked HA package
+[`homeassistant/tb3au_clock.yaml`](homeassistant/tb3au_clock.yaml):
+
+1. Copy it into your HA config dir and include it from `configuration.yaml`:
+
+   ```yaml
+   homeassistant:
+     packages:
+       tb3au_clock: !include homeassistant/tb3au_clock.yaml
+   ```
+2. Restart Home Assistant.
+3. Add the `Set clock message` **script** to a dashboard as a Button/Tile card.
+   Tapping it opens a dialog to type the message, then publishes
+   `{"mode":"text","text":"…"}` to `tb3au/display/set`.
+
+The package defines a `script` with a `text` field that calls `mqtt.publish`.
+Use the script rather than a raw Lovelace button `tap_action` → `mqtt.publish`
+with a template payload — that path does **not** render the template
+(HA core issue #137260). The file also shows how to add one-tap preset buttons.
+
 ## 7. Run the MQTT daemon (systemd)
 
 The daemon is a long-running service. A unit file is provided at

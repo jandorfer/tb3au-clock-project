@@ -1,0 +1,58 @@
+# Home Assistant package for the tb3au e-ink clock.
+#
+# This file is TRACKED in the repo so the dashboard action is reproducible.
+# It is NOT used by the Pi -- it lives in your Home Assistant config.
+#
+# Setup:
+#   1. Copy this file into your HA config dir (e.g. /config/homeassistant/tb3au_clock.yaml).
+#   2. In configuration.yaml add:
+#        homeassistant:
+#          packages:
+#            tb3au_clock: !include homeassistant/tb3au_clock.yaml
+#   3. Restart Home Assistant.
+#   4. Add the script below to a dashboard as a Button or Tile card. Tapping it
+#      opens a dialog to type the message, then publishes it to the clock.
+#
+# Requires the MQTT integration and the clock daemon (which auto-discovers the
+# device via ha_discovery.py). See README.md.
+#
+# Why a script and not a raw Lovelace button? A Lovelace tap_action that calls
+# mqtt.publish with a template in `payload` does NOT render the template
+# (HA core issue #137260). A script renders field variables server-side, so
+# the JSON template below works.
+
+# A dashboard button: tap it, type a message, and it is sent to the clock.
+script:
+  set_clock_message:
+    alias: "Set clock message"
+    mode: restart
+    fields:
+      text:
+        name: Message
+        description: Text to show on the e-ink clock
+        required: true
+        example: "Hello from Home Assistant"
+        selector:
+          text:
+    sequence:
+      - service: mqtt.publish
+        data:
+          topic: tb3au/display/set
+          payload: '{"mode":"text","text":"{{ text }}"}'
+          qos: 1
+          retain: false
+
+# --- Optional: one-tap preset buttons -----------------------------------------
+# Duplicate the script with a fixed payload to make preset messages, e.g. a
+# "Good morning" button. Add as many as you like and drop them on the dashboard.
+#   script:
+#     clock_good_morning:
+#       alias: "Clock: Good morning"
+#       mode: restart
+#       sequence:
+#         - service: mqtt.publish
+#           data:
+#             topic: tb3au/display/set
+#             payload: '{"mode":"text","text":"Good morning!"}'
+#             qos: 1
+#             retain: false
