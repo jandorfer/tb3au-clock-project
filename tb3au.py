@@ -109,6 +109,10 @@ MONO_TTF = os.path.join(_FONT_DIR, "LiberationMono-Regular.ttf")
 # to fill the whole 400x300 panel.
 MAX_BASE = 40
 
+# Minimal padding (px) around rendered text. The old value was 6; 2 keeps text
+# close to the panel edges. Set to 0 for true edge-to-edge rendering.
+TEXT_MARGIN = 2
+
 _FONT_CACHE = {}
 
 
@@ -366,7 +370,7 @@ def _draw_words(draw, x, y, words, size):
 
 def _render_markdown(text, markdown, image):
     W, H = image.size
-    margin = 6
+    margin = TEXT_MARGIN
     avail_w = W - 2 * margin
     if text and text.strip():
         blocks = _parse_markdown(text) if markdown else [("paragraph", text)]
@@ -374,7 +378,9 @@ def _render_markdown(text, markdown, image):
         blocks = [("paragraph", " ")]
     base = _fit_base_size(blocks, W, H, margin)
     ops, total_h, _ = _build_layout(blocks, base, avail_w, margin)
-    start_y = margin + max(0, (H - 2 * margin - total_h) // 2)
+    # Top-align so text hugs the top/left edges (minimal padding) rather than
+    # floating centred with empty space around short messages.
+    start_y = margin
 
     # Render text onto a grayscale canvas (anti-aliased with real TTF weights),
     # then threshold it to a 1-bit mask and composite onto the panel buffer.
