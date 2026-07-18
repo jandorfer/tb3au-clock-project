@@ -577,19 +577,42 @@ def render_joke():
         _sleep_panel(epd)
 
 
+def _fit_font_size(lines, max_w, max_h, draw, max_size=48):
+    """Largest Font.ttc size whose wrapped block fits.
+
+    We deliberately use the bundled Font.ttc (which renders solid glyphs
+    on this panel). The Liberation TTFs render as hollow/outlined
+    strokes here, so they must not be used for text mode.
+    """
+    for size in range(max_size, 7, -1):
+        f = ImageFont.truetype(os.path.join(picdir, "Font.ttc"), size)
+        lh = int(size * 1.25)
+        if lh * len(lines) > max_h:
+            continue
+        if any(draw.textlength(ln, font=f) > max_w for ln in lines):
+            continue
+        return size
+    return 8
+
+
 def render_text(text, layout=None, markdown=False):
     init_display()
     try:
         clear_display(epd)
-        # Simple, reliable text path (same as render_joke / show_error): wrap
-        # the string and draw with the bundled font. The grayscale/TTF markdown
-        # engine in _render_markdown currently renders hollow glyphs on this
-        # panel, so we use the proven approach here.
-        lines = break_string_into_array(text or "", 44)
-        offset = 8
-        for line in lines[:15]:
-            draw.text((5, offset), line, font=font15, fill=black)
-            offset += 18
+        # Auto-fit the bundled Font.ttc to a readable size and centre the
+        # block. The whole buffer is rotated 180 deg on display, so a
+        # centred block stays centred on the panel (not parked in a corner).
+        lines = break_string_into_array(text or "", 44)[:15]
+        max_w = epd.width - 2 * TEXT_MARGIN
+        max_h = epd.height - 2 * TEXT_MARGIN
+        size = _fit_font_size(lines, max_w, max_h, draw)
+        f = ImageFont.truetype(os.path.join(picdir, "Font.ttc"), size)
+        lh = int(size * 1.25)
+        y = max(TEXT_MARGIN, (epd.height - lh * len(lines)) // 2)
+        for line in lines:
+            x = max(TEXT_MARGIN, (epd.width - draw.textlength(line, font=f)) // 2)
+            draw.text((x, y), line, font=f, fill=black)
+            y += lh
         display_image(epd)
         return True
     except Exception as e:
