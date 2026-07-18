@@ -534,14 +534,22 @@ def render_joke():
     try:
         quote = get_quote()
         print(quote)
-        download_image(quote)
-        img = img_convert(IMG_PATH)
         clear_display(epd)
-        # Landscape panel: cartoon across the top, joke text underneath.
-        ix = (image.width - img.width) // 2
-        image.paste(img, (ix, 0))
+        # Cartoon on top when available; on image-generation failure (e.g.
+        # OpenAI moderation block) fall back to the joke text only.
+        img = None
+        try:
+            download_image(quote)
+            img = img_convert(IMG_PATH)
+        except Exception as e:
+            print("Image generation failed; showing joke text only:", e)
+        if img is not None:
+            ix = (image.width - img.width) // 2
+            image.paste(img, (ix, 0))
+            offset = img.height + 8
+        else:
+            offset = 8
         lines = break_string_into_array(quote, 44)
-        offset = img.height + 8
         for line in lines:
             draw.text((5, offset), line, font=font15, fill=black)
             offset = offset + 18
