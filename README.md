@@ -192,6 +192,51 @@ The daemon connects to `MQTT_BROKER` using the credentials in `.env`, publishes
 `tb3au/status = online`, and listens on `tb3au/display/set`. The daily cron
 job (section 5) keeps running independently.
 
+## 8. Local testing & CI
+
+### Hardware-free tests
+
+The display code can be tested **without hardware**. `tests/run_local_test.py`
+injects fake `waveshare_epd` / `openai` / `paho` modules and runs the real
+`render_*` and MQTT-dispatch logic against an in-memory display, writing sample
+PNGs to `tests/output/`:
+
+```bash
+# Windows (this repo's venv)
+.venv/Scripts/python.exe tests/run_local_test.py             # full checks
+.venv/Scripts/python.exe tests/run_local_test.py --save-only  # render PNGs only
+# Linux / macOS
+python tests/run_local_test.py
+pytest
+```
+
+`tests/test_local.py` is the pytest wrapper (11 checks) with a **coverage gate**
+(≥ 60% of `tb3au`).
+
+### Linting & pre-commit
+
+Code quality is enforced by [`pre-commit`](https://pre-commit.com) using
+`.pre-commit-config.yaml`:
+
+- `ruff` (lint + format) — config in `ruff.toml`
+- `detect-secrets` — scans for leaked credentials; findings recorded in
+  `.secrets.baseline`
+- `bandit` — security lint of the app source
+- `pip-audit` — CVE check of dev/test dependencies (`requirements-dev.txt`)
+- file hygiene hooks (trailing whitespace, EOF, line endings, YAML, large files)
+
+Activate locally once:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Then hooks run on every commit, and the **`lint` job** in
+`.github/workflows/tests.yml` runs `pre-commit run --all-files` on every
+PR/push (alongside the `test` job). Dev dependencies live in
+`requirements-dev.txt`. See `MQTT_DESIGN.md` for the full design.
+
 ## Notes
 
 - The SDK submodule is pinned to a known-good commit. To update it to the

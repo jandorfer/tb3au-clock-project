@@ -1,0 +1,60 @@
+# See https://pre-commit.com for documentation.
+# Run `pre-commit install` once to activate, then hooks run on every commit.
+# CI runs `pre-commit run --all-files` (see .github/workflows/tests.yml).
+#
+# Keep revs current with: pre-commit autoupdate
+default_install_hook_types: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: debug-statements
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.22
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        # Skip docs/placeholders and heavy untracked dirs. The baseline file
+        # (.secrets.baseline) records any accepted findings.
+        args:
+          - --baseline
+          - .secrets.baseline
+          - --exclude-files
+          - '(\.venv|e-Paper|tests/output|\.md$|\.example$)'
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.0
+    hooks:
+      - id: bandit
+        # Scan the whole repo (minus exclusions) rather than per-file, to avoid
+        # argparse conflicts with the filenames pre-commit appends.
+        pass_filenames: false
+        args:
+          - -r
+          - .
+          - -x
+          - ./.venv,./e-Paper,./tests
+
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.7.0
+    hooks:
+      # Audit the dev/test deps (current releases). The Pi's intentionally old
+      # runtime pins in requirements.txt are excluded to keep CI green; review
+      # those separately if you want CVE coverage there too.
+      - id: pip-audit
+        args:
+          - -r
+          - requirements-dev.txt

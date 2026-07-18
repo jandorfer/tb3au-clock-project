@@ -1,0 +1,25 @@
+# ruff configuration — fast Python linter + formatter.
+# This is the project's baseline; more rule sets (UP, C4, SIM, ...) can be
+# enabled later as the codebase adopts them.
+line-length = 100
+target-version = "py311"
+
+# Skip the third-party Waveshare SDK submodule, the venv, test artifacts,
+# and the third-party peppe8o demo (reference-only, not our code).
+# (ruff already ignores .venv/__pycache__/.git by default.)
+exclude = ["e-Paper", "tests/output", "peppe8o-paper.py"]
+
+[lint]
+# E/F = pycodestyle + pyflakes (classic flake8 set), I = import sorting,
+# W = pycodestyle warnings, B = flake8-bugbear (real-bug catcher).
+select = ["E", "F", "I", "W", "B"]
+
+# These files intentionally import after manipulating sys.path / injecting
+# fake modules, so the "import not at top of file" rule does not apply.
+[lint.per-file-ignores]
+"tb3au.py" = ["E402"]
+"tests/run_local_test.py" = ["E402"]
+"peppe8o-paper.py" = ["E402"]
+
+[format]
+quote-style = "double"
