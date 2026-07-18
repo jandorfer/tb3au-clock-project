@@ -30,17 +30,19 @@ A single JSON envelope covers every case:
 
 ```json
 {
-  "mode": "text | image | both | clear | joke",
+  "mode": "text | image | both | clear | joke | markdown",
   "text": "optional string",
   "image": "optional base64 string OR http(s) url",
   "image_type": "base64 | url",
-  "layout": "image_top | image_only | text_only"
+  "layout": "image_top | image_only | text_only",
+  "markdown": "optional bool — render `text` as markdown (text/markdown mode)"
 }
 ```
 
 | `mode` | Behaviour | Required fields |
 |---|---|---|
-| `text` | Wrap + draw text (current panel). | `text` |
+| `text` | Wrap + draw text. Set `"markdown": true` to render the text as markdown (headings, **bold**, *italic*, `code`, lists, quotes, rules) and auto-scale the font to fill the panel. | `text` |
+| `markdown` | Alias for `text` with markdown always on. | `text` |
 | `image` | Decode image, fit to panel, centre. | `image` (+ `image_type`) |
 | `both` | Image at `(0,100)` + wrapped caption above (joke layout). | `text`, `image` |
 | `clear` | Blank the screen. | — |

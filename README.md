@@ -120,14 +120,20 @@ renders them using the same code path as the daily joke.
 
 ```json
 {
-  "mode": "text | image | both | clear | joke",
+  "mode": "text | image | both | clear | joke | markdown",
   "text": "optional string",
   "image": "optional base64 string OR http(s) url",
-  "image_type": "base64 | url"
+  "image_type": "base64 | url",
+  "markdown": "optional bool — render `text` as markdown"
 }
 ```
 
-- `text` — wrapped text on the panel.
+- `text` — wrapped text on the panel. Add `"markdown": true` (or use `mode:
+  markdown`) to render the text as **markdown** — `#`/`##`/`###` headings,
+  `**bold**`, `*italic*`, `` `code` ``, `- ` bullet lists, `> ` quotes, and
+  `---` rules — with the font **auto-scaled to fill the panel** (short text is
+  drawn large, long text shrinks to fit). Faux-bold is used (the TTC ships no
+  bold face); italic renders as regular.
 - `image` — decoded (base64) or fetched (url), fitted and centred.
 - `both` — image at the top + wrapped caption below (the joke layout).
 - `clear` — blank the screen.

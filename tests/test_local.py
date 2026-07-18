@@ -33,6 +33,16 @@ def test_render_text():
     assert harness.black_pixels(img) > 0
 
 
+def test_render_markdown():
+    harness.tb3au.render_text(
+        "# Title\n**bold** word\n- a\n- b", markdown=True
+    )
+    img = harness.last_image()
+    assert img is not None
+    assert img.size == EXPECTED_SIZE
+    assert harness.black_pixels(img) > 0
+
+
 def test_render_image():
     harness.tb3au.render_image(harness.TEST_B64, "base64")
     img = harness.last_image()

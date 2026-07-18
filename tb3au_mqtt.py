@@ -14,6 +14,7 @@ import time
 
 import paho.mqtt.client as mqtt
 
+from ha_discovery import publish_discovery
 from tb3au import (
     render_both,
     render_clear,
@@ -21,7 +22,6 @@ from tb3au import (
     render_joke,
     render_text,
 )
-from ha_discovery import publish_discovery
 
 TOPIC_SET = os.environ.get("TB3AU_TOPIC_SET", "tb3au/display/set")
 TOPIC_STATE = os.environ.get("TB3AU_TOPIC_STATE", "tb3au/display/state")
@@ -75,8 +75,10 @@ def handle_payload(payload):
         ok = render_joke()
         if ok:
             text = ok
-    elif mode == "text":
-        ok = render_text(text)
+    elif mode in ("text", "markdown"):
+        ok = render_text(
+            text, markdown=bool(data.get("markdown", mode == "markdown"))
+        )
     elif mode == "image":
         if not image:
             return {"error": "image mode requires 'image' field"}

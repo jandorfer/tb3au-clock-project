@@ -237,6 +237,27 @@ def run_checks(save_only=False):
         )
     )
 
+    tb3au.render_text(
+        "# Heading\n**Bold** and *italic* and `code`\n- one\n- two\n> a quote",
+        markdown=True,
+    )
+    img = save_last("markdown")
+    results.append(check("render_markdown produces an image", img is not None))
+    results.append(
+        check(
+            "render_markdown image is 400x300",
+            img is not None and img.size == (400, 300),
+            str(img.size) if img else "None",
+        )
+    )
+    results.append(
+        check(
+            "render_markdown has black pixels",
+            img is not None and black_pixels(img) > 0,
+            "black=%d" % (black_pixels(img) if img else 0),
+        )
+    )
+
     tb3au.render_image(TEST_B64, "base64")
     img = save_last("image")
     results.append(check("render_image produces an image", img is not None))
@@ -274,6 +295,13 @@ def run_checks(save_only=False):
 
     r = tb3au_mqtt.handle_payload(json.dumps({"mode": "text", "text": "hi"}).encode())
     results.append(check("dispatch text -> echo", r == {"mode": "text", "text": "hi"}, str(r)))
+
+    r = tb3au_mqtt.handle_payload(
+        json.dumps({"mode": "markdown", "text": "# Hi"}).encode()
+    )
+    results.append(
+        check("dispatch markdown -> echo", r == {"mode": "markdown", "text": "# Hi"}, str(r))
+    )
 
     r = tb3au_mqtt.handle_payload(
         json.dumps({"mode": "image", "image": TEST_B64, "image_type": "base64"}).encode()

@@ -2,6 +2,7 @@ import base64
 import io
 import json
 import os
+import re
 import sys
 
 import requests
@@ -87,6 +88,286 @@ def display_image(epd, img=None):
     if DISPLAY_ROTATION:
         img = img.rotate(DISPLAY_ROTATION)
     epd.display(epd.getbuffer(img))
+
+
+# ---------------------------------------------------------------------------
+# Markdown + auto-fit text rendering
+# ---------------------------------------------------------------------------
+
+# Face 0 = WenQuanYi Micro Hei (regular, scalable); face 1 = the Mono variant
+# (used for `code`). The TTC ships no bold/italic face, so bold is faux (the
+# glyph is overdrawn a few pixels) and italic renders as regular.
+_FONT_CACHE = {}
+
+
+def _font(size, mono=False):
+    key = (int(size), bool(mono))
+    if key not in _FONT_CACHE:
+        idx = 1 if mono else 0
+        _FONT_CACHE[key] = ImageFont.truetype(
+            os.path.join(picdir, "Font.ttc"), int(size), index=idx
+        )
+    return _FONT_CACHE[key]
+
+
+def _text_width(font, text):
+    if not text:
+        return 0
+    bbox = font.getbbox(text)
+    return bbox[2] - bbox[0]
+
+
+_INLINE_RE = re.compile(r"(\*\*.+?\*\*|\*[^*]+\*|`[^`]+`)")
+
+
+def _parse_inline(text):
+    """Split text into (text, style-set) runs for **bold**, *italic*, `code`."""
+    segs = []
+    pos = 0
+    for m in _INLINE_RE.finditer(text):
+        if m.start() > pos:
+            segs.append((text[pos:m.start()], set()))
+        tok = m.group(0)
+        if tok.startswith("**") and tok.endswith("**"):
+            segs.append((tok[2:-2], {"bold"}))
+        elif tok.startswith("`") and tok.endswith("`"):
+            segs.append((tok[1:-1], {"code"}))
+        else:
+            segs.append((tok[1:-1], {"italic"}))
+        pos = m.end()
+    if pos < len(text):
+        segs.append((text[pos:], set()))
+    return segs
+
+
+def _wrap_inline(segs, size, max_w, mono=False):
+    """Wrap inline runs into lines that fit max_w (list of word-runs)."""
+    font = _font(size, mono)
+    space_w = _text_width(font, " ")
+    words = []
+    for text, style in segs:
+        for w in text.split(" "):
+            if w:
+                words.append((w, set(style)))
+    lines = []
+    cur = []
+    cur_w = 0
+    for w, style in words:
+        ww = _text_width(font, w)
+        if cur and cur_w + space_w + ww > max_w:
+            lines.append(cur)
+            cur = [(w, style)]
+            cur_w = ww
+        else:
+            cur.append((w, style))
+            cur_w += (space_w if cur_w else 0) + ww
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+_BLOCK_START_RE = re.compile(r"^\s*(#{1,3}\s|[-*]\s|> \s|```|-{3,}|\*{3,})")
+
+
+def _parse_markdown(text):
+    """Parse a small markdown subset into typed blocks."""
+    lines = text.split("\n")
+    blocks = []
+    i = 0
+    n = len(lines)
+    while i < n:
+        stripped = lines[i].strip()
+        if stripped == "":
+            i += 1
+            continue
+        if stripped in ("---", "***"):
+            blocks.append(("rule", None))
+            i += 1
+            continue
+        if stripped.startswith("```"):
+            code = []
+            i += 1
+            while i < n and not lines[i].strip().startswith("```"):
+                code.append(lines[i])
+                i += 1
+            i += 1  # consume closing fence
+            blocks.append(("code", "\n".join(code)))
+            continue
+        if stripped.startswith("# "):
+            blocks.append(("heading", (1, stripped[2:].strip())))
+            i += 1
+            continue
+        if stripped.startswith("## "):
+            blocks.append(("heading", (2, stripped[3:].strip())))
+            i += 1
+            continue
+        if stripped.startswith("### "):
+            blocks.append(("heading", (3, stripped[4:].strip())))
+            i += 1
+            continue
+        if stripped.startswith("> "):
+            q = []
+            while i < n and lines[i].strip().startswith("> "):
+                q.append(lines[i].strip()[2:].strip())
+                i += 1
+            blocks.append(("quote", " ".join(q)))
+            continue
+        if re.match(r"^[-*]\s", stripped):
+            items = []
+            while i < n and re.match(r"^[-*]\s", lines[i].strip()):
+                items.append(re.sub(r"^[-*]\s", "", lines[i].strip()))
+                i += 1
+            blocks.append(("list", items))
+            continue
+        para = [stripped]
+        i += 1
+        while i < n and lines[i].strip() != "" and not _BLOCK_START_RE.match(lines[i]):
+            para.append(lines[i].strip())
+            i += 1
+        blocks.append(("paragraph", " ".join(para)))
+    return blocks
+
+
+_HEADING_SCALE = {1: 2.0, 2: 1.5, 3: 1.25}
+
+
+def _line_width(words, size, mono=False):
+    font = _font(size, mono)
+    return sum(_text_width(font, w) + _text_width(font, " ") for w, _ in words)
+
+
+def _build_layout(blocks, base, avail_w, margin):
+    """Return (ops, total_height, max_width). ops are draw descriptors with
+    relative y; final drawing offsets by a centered start_y."""
+    ops = []
+    y = 0
+    max_w = 0
+    for block in blocks:
+        kind = block[0]
+        if kind == "rule":
+            y += 4
+            ops.append(("rule", y, 6))
+            y += 6
+            continue
+        if kind == "heading":
+            lvl, txt = block[1]
+            size = int(base * _HEADING_SCALE.get(lvl, 1.25))
+            for wl in _wrap_inline(_parse_inline(txt), size, avail_w - margin):
+                ops.append(("line", y, margin, wl, size, False))
+                y += size + 6
+                max_w = max(max_w, _line_width(wl, size))
+            continue
+        if kind == "paragraph":
+            size = base
+            for wl in _wrap_inline(_parse_inline(block[1]), size, avail_w - margin):
+                ops.append(("line", y, margin, wl, size, False))
+                y += size + 6
+                max_w = max(max_w, _line_width(wl, size))
+            continue
+        if kind == "list":
+            size = base
+            bullet_indent = margin + max(10, size)
+            for item in block[1]:
+                wrapped = _wrap_inline(_parse_inline(item), size, avail_w - bullet_indent)
+                first = True
+                for wl in wrapped:
+                    indent = bullet_indent if not first else margin
+                    if first:
+                        wl = [("\u2022 ", set())] + wl
+                    ops.append(("line", y, indent, wl, size, False))
+                    y += size + 6
+                    max_w = max(max_w, _line_width(wl, size) + indent)
+                    first = False
+            continue
+        if kind == "quote":
+            size = base
+            qindent = margin + 8
+            wrapped = _wrap_inline(_parse_inline(block[1]), size, avail_w - qindent)
+            block_h = 0
+            qlines = []
+            for wl in wrapped:
+                qlines.append(("line", y, qindent, wl, size, False))
+                y += size + 6
+                block_h += size + 6
+                max_w = max(max_w, _line_width(wl, size) + qindent)
+            ops.append(("bar", y - block_h, block_h))
+            ops.extend(qlines)
+            continue
+        if kind == "code":
+            size = base
+            pad = 4
+            inner_w = avail_w - margin - pad
+            wrapped = _wrap_inline(_parse_inline(block[1]), size, inner_w, mono=True)
+            block_h = 0
+            clines = []
+            for wl in wrapped:
+                clines.append(("line", y, margin + pad, wl, size, True))
+                y += size + 4
+                block_h += size + 4
+                max_w = max(max_w, _line_width(wl, size, mono=True) + margin + pad)
+            ops.append(("box", y - block_h - pad, block_h + 2 * pad))
+            ops.extend(clines)
+            continue
+    return ops, y, max_w
+
+
+def _fit_base_size(blocks, W, H, margin):
+    avail_w = W - 2 * margin
+    avail_h = H - 2 * margin
+    lo, hi, best = 8, 120, 8
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        _, th, mw = _build_layout(blocks, mid, avail_w, margin)
+        if th <= avail_h and mw <= avail_w:
+            best = mid
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return best
+
+
+def _draw_words(draw, x, y, words, size, mono):
+    fx = x
+    for w, style in words:
+        f = _font(size, "code" in style)
+        if "bold" in style:
+            for dx, dy in ((0, 0), (1, 0), (0, 1)):
+                draw.text((fx + dx, y + dy), w, font=f, fill=black)
+        else:
+            draw.text((fx, y), w, font=f, fill=black)
+        fx += _text_width(f, w) + _text_width(f, " ")
+
+
+def _render_markdown(text, markdown, image):
+    W, H = image.size
+    margin = 6
+    avail_w = W - 2 * margin
+    if text and text.strip():
+        blocks = _parse_markdown(text) if markdown else [("paragraph", text)]
+    else:
+        blocks = [("paragraph", " ")]
+    base = _fit_base_size(blocks, W, H, margin)
+    ops, total_h, _ = _build_layout(blocks, base, avail_w, margin)
+    draw = ImageDraw.Draw(image)
+    start_y = margin + max(0, (H - 2 * margin - total_h) // 2)
+    for op in ops:
+        if op[0] == "line":
+            _, y, indent, words, size, mono = op
+            _draw_words(draw, indent, start_y + y, words, size, mono)
+        elif op[0] == "rule":
+            _, y, h = op
+            draw.line((margin, start_y + y, W - margin, start_y + y), fill=black, width=2)
+        elif op[0] == "bar":
+            _, y0, h = op
+            draw.line((margin + 2, start_y + y0, margin + 2, start_y + y0 + h), fill=black, width=3)
+        elif op[0] == "box":
+            _, y0, h = op
+            draw.rectangle(
+                (margin, start_y + y0, W - margin, start_y + y0 + h),
+                outline=black,
+                width=1,
+            )
+    return image
 
 
 def clear_display(epd):
@@ -220,15 +501,11 @@ def render_joke():
         epd.sleep()
 
 
-def render_text(text, layout=None):
+def render_text(text, layout=None, markdown=False):
     init_display()
     try:
         clear_display(epd)
-        lines = break_string_into_array(text or "", 44)
-        offset = 0
-        for line in lines:
-            draw.text((5, offset), line, font=font15, fill=black)
-            offset = offset + 18
+        _render_markdown(text or "", markdown, image)
         display_image(epd)
         return True
     except Exception as e:
