@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+import time
 
 import requests
 
@@ -38,6 +39,12 @@ def _load_dotenv(path=None):
 _load_dotenv()
 
 black = 0
+
+# The 4.2" panel's full refresh takes a couple of seconds. Every e-ink action
+# (Clear / display / init) must be followed by a settle pause, otherwise rapid
+# successive actions corrupt the buffer and can drive the panel to a stuck
+# (often all-black) state.
+PANEL_REFRESH_PAUSE = 2.5
 white = 1
 
 IMG_PATH = os.path.join(_BASE, "generated_image.png")
@@ -75,6 +82,7 @@ def init_display():
     global epd, font15, image, draw
     epd = epd4in2_V2.EPD()
     epd.init()
+    time.sleep(0.5)  # settle after controller init
     font15 = ImageFont.truetype(os.path.join(picdir, "Font.ttc"), 15)
     image = None
     draw = None
@@ -88,6 +96,7 @@ def display_image(epd, img=None):
     if DISPLAY_ROTATION:
         img = img.rotate(DISPLAY_ROTATION)
     epd.display(epd.getbuffer(img))
+    time.sleep(PANEL_REFRESH_PAUSE)  # let the slow full refresh finish
 
 
 # ---------------------------------------------------------------------------
@@ -411,7 +420,8 @@ def _render_markdown(text, markdown, image):
 
 def clear_display(epd):
     global image, draw
-    epd.Clear()
+    epd.Clear()  # full refresh to white
+    time.sleep(PANEL_REFRESH_PAUSE)  # settle before reusing the buffer
     # Build the buffer in the panel's native landscape size (400x300). Creating
     # it as (height, width) made the driver transpose the buffer, which rotated
     # every render 90 degrees.
@@ -486,8 +496,12 @@ _KEEP_AWAKE = False
 
 
 def _sleep_panel(epd):
-    """Sleep the panel unless the caller asked to keep it awake."""
-    if not _KEEP_AWAKE:
+    """After a render, settle the slow panel. The daemon keeps it awake
+    (pausing only -- no module_exit, which would close the MQTT socket's file
+    descriptor); the cron path performs a real deep sleep."""
+    if _KEEP_AWAKE:
+        time.sleep(PANEL_REFRESH_PAUSE)
+    else:
         epd.sleep()
 
 
