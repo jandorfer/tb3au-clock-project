@@ -34,7 +34,7 @@ if echo "$CHANGED" | grep -qE 'deploy/tb3au-mqtt\.service'; then
   RESTART=1
 fi
 
-if echo "$CHANGED" | grep -qE 'tb3au\.py|tb3au_mqtt\.py|^e-Paper'; then
+if echo "$CHANGED" | grep -qE 'tb3au\.py|tb3au_mqtt\.py|ha_discovery\.py|^e-Paper'; then
   echo "[$(date -Is)] app/sdk changed -> daemon restart needed"
   RESTART=1
 fi
