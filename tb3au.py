@@ -581,7 +581,15 @@ def render_text(text, layout=None, markdown=False):
     init_display()
     try:
         clear_display(epd)
-        _render_markdown(text or "", markdown, image)
+        # Simple, reliable text path (same as render_joke / show_error): wrap
+        # the string and draw with the bundled font. The grayscale/TTF markdown
+        # engine in _render_markdown currently renders hollow glyphs on this
+        # panel, so we use the proven approach here.
+        lines = break_string_into_array(text or "", 44)
+        offset = 8
+        for line in lines[:15]:
+            draw.text((5, offset), line, font=font15, fill=black)
+            offset += 18
         display_image(epd)
         return True
     except Exception as e:
