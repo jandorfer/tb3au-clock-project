@@ -44,11 +44,13 @@ if [ "$RESTART" -eq 1 ]; then
   sudo systemctl restart tb3au-mqtt.service
 fi
 
-# Safety: make sure the panel isn't left showing a stale test/debug render
-# (e.g. a temporary "Hi" sent while probing). Re-assert joke mode as a RETAINED
-# message so the (re)started daemon restores the daily joke on connect, and the
-# setting also survives the next reboot. Non-fatal if the broker is unreachable.
-if [ -f tb3au_mqtt.py ]; then
+# Only re-assert joke mode when we actually restarted the daemon for a
+# code/SDK change (RESTART==1). The retained `mode=joke` message already
+# restores the daily joke on every (re)connect, so the routine 15-minute
+# auto_update poll must NOT refresh the panel -- forcing a full e-ink refresh
+# every 15 minutes is what was re-sticking the panel to black. Re-asserting
+# here just clears any stale test render left over from before the deploy.
+if [ "$RESTART" -eq 1 ] && [ -f tb3au_mqtt.py ]; then
   PYTHONPATH="$REPO_ROOT" python3 - <<'PYEOF'
 import json, time, paho.mqtt.client as mqtt
 import tb3au_mqtt as t
@@ -60,7 +62,7 @@ try:
     c.publish("tb3au/display/set", json.dumps({"mode": "joke"}), qos=1, retain=True)
     time.sleep(2)
     c.loop_stop()
-    print("[auto_update] re-asserted joke mode (clears stale test renders)")
+    print("[auto_update] re-asserted joke mode after restart (clears stale test renders)")
 except Exception as e:
     print(f"[auto_update] could not re-assert joke mode: {e}")
 PYEOF
