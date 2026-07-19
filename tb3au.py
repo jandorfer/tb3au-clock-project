@@ -103,6 +103,10 @@ def display_image(epd, img=None):
         img = image
     if DISPLAY_ROTATION:
         img = img.rotate(DISPLAY_ROTATION)
+    try:
+        img.save("/tmp/last_display.png")
+    except Exception:  # nosec B110 - debug dump, best effort
+        pass
     epd.display(epd.getbuffer(img))
     time.sleep(PANEL_REFRESH_PAUSE)  # let the slow full refresh finish
 
