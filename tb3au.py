@@ -78,8 +78,23 @@ def get_openai_client():
 
 
 def init_display():
-    """Initialise the e-paper panel and the shared module state."""
+    """Initialise the e-paper panel and the shared module state.
+
+    The panel is shared with the nightly cron job (tb3au.py), which ends each
+    render with epd.sleep() -> deep sleep + epdconfig.module_exit() (GPIO
+    release). epdconfig is a per-process singleton whose ``Flag`` stays set
+    after that, so a later render in this long-lived daemon would no-op
+    module_init and talk to a sleeping / powered-off panel (nothing shows).
+    Force a clean reset first so module_init actually re-initialises the
+    hardware.
+    """
     global epd, font15, image, draw
+    try:
+        from waveshare_epd import epdconfig
+        if getattr(epdconfig, "Flag", 0) == 1:
+            epdconfig.module_exit()
+    except Exception:  # nosec B110 - best-effort hardware reset
+        pass
     epd = epd4in2_V2.EPD()
     epd.init()
     time.sleep(0.5)  # settle after controller init
